@@ -7,6 +7,8 @@ var SEED = require('../config/config').SEED;
 var app = express(); // definiendo mi servidor express
 var Usuario = require('../models/usuario');
 
+var mdAutenticacion = require('../middlewares/autenticacion');
+
 // Google
 var CLIENT_ID = require('../config/config').CLIENT_ID;
 const { OAuth2Client } = require('google-auth-library');
@@ -32,6 +34,23 @@ async function verify(token) {
         google: true
     }
 }
+
+
+// =========================================
+// Renueva el token
+// =========================================
+app.get('/renuevatoken', mdAutenticacion.verificaToken, (req, res) => {
+
+    var token = jwt.sign({ usuario: req.usuario }, SEED, { expiresIn: 14400 }); // 4hrs
+
+    return res.status(200).json({
+        ok: true,
+        token: token
+    });
+
+
+});
+
 
 // =========================================
 // Autenticacion de Google
@@ -61,7 +80,7 @@ app.post('/google', async(req, res) => {
             if (usuarioDB.google === false) {
                 return res.status(400).json({
                     ok: false,
-                    mensaje: 'Debe user su autenticacio normal'
+                    mensaje: 'Debe user su autenticacion normal'
                 });
             } else {
                 var token = jwt.sign({ usuario: usuarioDB }, SEED, { expiresIn: 14400 }); // 4hrs
@@ -70,7 +89,8 @@ app.post('/google', async(req, res) => {
                     ok: true,
                     usuario: usuarioDB,
                     token: token,
-                    id: usuarioDB._id
+                    id: usuarioDB._id,
+                    menu: obtenerMenu(usuarioDB.role)
                 });
             }
         } else {
@@ -87,7 +107,7 @@ app.post('/google', async(req, res) => {
                 if (err) {
                     return res.status(500).json({
                         ok: false,
-                        mensaje: 'Error al buscar usuario',
+                        mensaje: 'Error al crear usuario - google',
                         errors: err
                     });
                 }
@@ -98,7 +118,8 @@ app.post('/google', async(req, res) => {
                     ok: true,
                     usuario: usuarioDB,
                     token: token,
-                    id: usuarioDB._id
+                    id: usuarioDB._id,
+                    menu: obtenerMenu(usuarioDB.role)
                 });
 
 
@@ -106,16 +127,6 @@ app.post('/google', async(req, res) => {
 
         }
     })
-
-    // res.status(200).json({
-    //     ok: true,
-    //     mensaje: 'OK!!',
-    //     googleUser: googleUser
-    // });
-
-
-
-
 })
 
 
@@ -159,12 +170,42 @@ app.post('/', (req, res) => {
             ok: true,
             usuario: usuarioDB,
             token: token,
-            id: usuarioDB._id
+            id: usuarioDB._id,
+            menu: obtenerMenu(usuarioDB.role)
         });
     });
 
+});
 
-})
+function obtenerMenu(ROLE) {
 
+    var menu = [{
+            title: 'Main',
+            icon: 'mdi mdi-gauge',
+            submenu: [
+                { title: 'Dashboard', url: '/dashboard' },
+                { title: 'ProgressBar', url: '/progress' },
+                { title: 'Graphics', url: '/graficas1' },
+                { title: 'Promesas', url: '/promesas' },
+                { title: 'RxJs', url: '/rxjs' }
+            ]
+        },
+        {
+            title: 'Maintenance',
+            icon: 'mdi md-folder-lock-open',
+            submenu: [
+                // { title: 'Usuarios', url: '/usuarios' },
+                { title: 'Hospitales', url: '/hospitales' },
+                { title: 'Medicos', url: '/medicos' }
+            ]
+        }
+    ];
+
+    if (ROLE === 'ADMIN_ROLE') {
+        menu[1].submenu.unshift({ title: 'Usuarios', url: '/usuarios' });
+    }
+
+    return menu;
+}
 
 module.exports = app;
